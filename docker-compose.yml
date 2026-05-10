@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   frogfan:
-    image: ghcr.io/derenrich/frogfan:main
+    image: ghcr.io/derenrich/frogfan:latest
     ports:
       - "3000:3000"
     volumes:

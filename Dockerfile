@@ -19,6 +19,9 @@ COPY . .
 # Next.js telemetry
 ENV NEXT_TELEMETRY_DISABLED 1
 
+ARG BASE_PATH
+ENV BASE_PATH=$BASE_PATH
+
 RUN npm run build
 
 # Production image, copy all the files and run next
