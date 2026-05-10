@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  frogfan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      # Mount the user's host media directly to the container so it can be browsed.
+      # You can change this path to wherever your media is located.
+      - /Users/derenrich/oss:/host_media
+    environment:
+      - DATA_DIR=/app/data
+      - NODE_ENV=production
+    restart: unless-stopped
