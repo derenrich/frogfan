@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing filePath' }, { status: 400 });
     }
 
-    const scriptPath = path.join(process.cwd(), 'src', 'lib', 'parse_mat.py');
+    const scriptPath = path.join(process.env.PWD || String.fromCharCode(46), 'src', 'lib', 'parse_mat.py');
 
     // We try to run python3 (it should be in the PATH and have h5py installed)
     // For local dev, the user's virtualenv python might be used if they activated it before running npm run dev.

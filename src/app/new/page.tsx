@@ -30,7 +30,7 @@ export default function NewSession() {
     
     setSaving(true);
     try {
-      const res = await fetch('/api/sessions', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -60,7 +60,7 @@ export default function NewSession() {
     const matPath = paths[0];
     setImporting(true);
     try {
-      const res = await fetch('/api/import-mat', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/import-mat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filePath: matPath })

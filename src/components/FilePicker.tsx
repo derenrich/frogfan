@@ -29,7 +29,7 @@ export default function FilePicker({ onSelect, multiSelect = false, directoriesO
   const fetchDir = async (pathStr: string, isFallback = false) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/fs?path=${encodeURIComponent(pathStr)}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/fs?path=${encodeURIComponent(pathStr)}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setCurrentPath(data.currentPath);

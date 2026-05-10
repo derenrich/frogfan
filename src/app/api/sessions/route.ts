@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const DATA_DIR = process.env.DATA_DIR || path.join(process.env.PWD || String.fromCharCode(46), 'data');
 const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 
 export async function ensureSessionsDir() {

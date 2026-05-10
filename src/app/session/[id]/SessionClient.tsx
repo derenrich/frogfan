@@ -131,7 +131,7 @@ export default function SessionClient({ id }: { id: string }) {
   }, [session, mediaIndex, frameIndex, currentLabel, labelColors, mediaMeta?.width, mediaMeta?.height]);
 
   useEffect(() => {
-    fetch(`/api/sessions/${id}`)
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/sessions/${id}`)
       .then(r => r.json())
       .then(data => {
         if (!data.error) {
@@ -148,7 +148,7 @@ export default function SessionClient({ id }: { id: string }) {
   useEffect(() => {
     if (!session || !session.mediaFiles[mediaIndex]) return;
     const mediaPath = session.mediaFiles[mediaIndex];
-    fetch(`/api/media?action=meta&path=${encodeURIComponent(mediaPath)}`)
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/media?action=meta&path=${encodeURIComponent(mediaPath)}`)
       .then(r => r.json())
       .then(data => setMediaMeta(data));
   }, [session, mediaIndex]);
@@ -157,7 +157,7 @@ export default function SessionClient({ id }: { id: string }) {
     if (!session) return;
     setSaving(true);
     try {
-      await fetch(`/api/sessions/${id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/sessions/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...session, annotations: newAnnotations })
@@ -209,7 +209,7 @@ export default function SessionClient({ id }: { id: string }) {
     setNewLabelName('');
     setShowAddLabelModal(false);
     
-    fetch(`/api/sessions/${id}`, {
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/sessions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedSession)
@@ -240,7 +240,7 @@ export default function SessionClient({ id }: { id: string }) {
       setCurrentLabel(newLabelNames.length > 0 ? newLabelNames[0] : null);
     }
 
-    fetch(`/api/sessions/${id}`, {
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/sessions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedSession)
@@ -284,7 +284,7 @@ export default function SessionClient({ id }: { id: string }) {
     
     setEditLabelModal(null);
 
-    fetch(`/api/sessions/${id}`, {
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/sessions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedSession)
@@ -363,7 +363,7 @@ export default function SessionClient({ id }: { id: string }) {
   const currentMediaPath = session.mediaFiles[mediaIndex];
   const currentPoints = session.annotations[currentMediaPath]?.[frameIndex] || {};
   const fpsParam = mediaMeta?.fps ? `&fps=${mediaMeta.fps}` : '';
-  const imageUrl = `/api/media?action=frame&path=${encodeURIComponent(currentMediaPath)}&frame=${frameIndex}${fpsParam}`;
+  const imageUrl = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/media?action=frame&path=${encodeURIComponent(currentMediaPath)}&frame=${frameIndex}${fpsParam}`;
 
   return (
     <div className={styles.layout}>

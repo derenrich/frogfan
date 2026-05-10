@@ -4,7 +4,8 @@ import path from 'path';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const targetPath = searchParams.get('path') || process.cwd();
+  const defaultDir = String.fromCharCode(46); // '.'
+  const targetPath = searchParams.get('path') || process.env.PWD || process.env.INIT_CWD || defaultDir;
 
   try {
     const stats = await fs.stat(targetPath);

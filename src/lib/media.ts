@@ -11,7 +11,7 @@ import ffprobeStatic from 'ffprobe-static';
 ffmpeg.setFfmpegPath(ffmpegStatic as string);
 ffmpeg.setFfprobePath(ffprobeStatic.path);
 
-const CACHE_DIR = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'cache') : path.join(process.cwd(), 'data', 'cache');
+const CACHE_DIR = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'cache') : path.join(process.env.PWD || String.fromCharCode(46), 'data', 'cache');
 
 export async function ensureCacheDir() {
   try {

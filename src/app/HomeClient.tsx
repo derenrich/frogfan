@@ -9,7 +9,7 @@ export default function HomeClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/sessions')
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/sessions`)
       .then(r => r.json())
       .then(data => {
         if (!data.error) setSessions(data);
@@ -22,7 +22,7 @@ export default function HomeClient() {
     if (!window.confirm(`Are you sure you want to permanently delete the session "${title}"?`)) return;
 
     try {
-      const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/sessions/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setSessions(sessions.filter(s => s.id !== id));
       } else {
