@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { CornerLeftUp, Save, Download, ChevronLeft, ChevronRight, Video, Plus, X } from 'lucide-react';
+import { CornerLeftUp, Save, Download, ChevronLeft, ChevronRight, Video, Plus, X, Pencil } from 'lucide-react';
 import LabelCanvas from '@/components/LabelCanvas';
 import styles from './session.module.css';
 
@@ -18,6 +18,8 @@ interface Session {
       }
     }
   };
+  dltcoef?: number[][];
+  currframe?: number[];
 }
 
 export default function SessionClient({ id }: { id: string }) {
@@ -30,6 +32,7 @@ export default function SessionClient({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const [showAddLabelModal, setShowAddLabelModal] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
+  const [editLabelModal, setEditLabelModal] = useState<{ oldName: string; newName: string } | null>(null);
 
   // Generate distinct colors for labels
   const labelColors: { [key: string]: string } = {};
@@ -48,6 +51,9 @@ export default function SessionClient({ id }: { id: string }) {
           if (!data.annotations) data.annotations = {};
           setSession(data);
           if (data.labelNames.length > 0) setCurrentLabel(data.labelNames[0]);
+          if (data.currframe && data.currframe.length > 0) {
+            setFrameIndex(data.currframe[0]);
+          }
         }
       });
   }, [id]);
@@ -146,6 +152,50 @@ export default function SessionClient({ id }: { id: string }) {
     if (currentLabel === labelToRemove) {
       setCurrentLabel(newLabelNames.length > 0 ? newLabelNames[0] : null);
     }
+
+    fetch(`/api/sessions/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedSession)
+    });
+  };
+
+  const handleRenameLabel = () => {
+    if (!session || !editLabelModal || !editLabelModal.newName.trim()) return;
+    const oldName = editLabelModal.oldName;
+    const newName = editLabelModal.newName.trim();
+    
+    if (oldName === newName) {
+      setEditLabelModal(null);
+      return;
+    }
+    
+    if (session.labelNames.includes(newName)) {
+      alert('A label with this name already exists');
+      return;
+    }
+
+    const newLabelNames = session.labelNames.map(l => l === oldName ? newName : l);
+    const newAnns = { ...session.annotations };
+    
+    Object.keys(newAnns).forEach(mediaPath => {
+      newAnns[mediaPath] = { ...newAnns[mediaPath] };
+      Object.keys(newAnns[mediaPath]).forEach(frame => {
+        if (newAnns[mediaPath][frame][oldName]) {
+          newAnns[mediaPath][frame] = { ...newAnns[mediaPath][frame] };
+          newAnns[mediaPath][frame][newName] = newAnns[mediaPath][frame][oldName];
+          delete newAnns[mediaPath][frame][oldName];
+        }
+      });
+    });
+
+    const updatedSession = { ...session, labelNames: newLabelNames, annotations: newAnns };
+    setSession(updatedSession);
+    if (currentLabel === oldName) {
+      setCurrentLabel(newName);
+    }
+    
+    setEditLabelModal(null);
 
     fetch(`/api/sessions/${id}`, {
       method: 'PUT',
@@ -265,6 +315,16 @@ export default function SessionClient({ id }: { id: string }) {
                   <span className={styles.colorDot} style={{ background: labelColors[l] }} />
                   <span className={styles.keyHint}>{i + 1}</span> {l}
                 </button>
+                <button 
+                  className={styles.deleteLabelBtn} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditLabelModal({ oldName: l, newName: l });
+                  }} 
+                  title="Rename Label"
+                >
+                  <Pencil size={14} />
+                </button>
                 <button className={styles.deleteLabelBtn} onClick={(e) => handleRemoveLabel(l, e)} title="Delete Label">
                   <X size={16} />
                 </button>
@@ -355,6 +415,30 @@ export default function SessionClient({ id }: { id: string }) {
             <div className={styles.modalActions}>
               <button className={styles.btnSecondary} onClick={() => setShowAddLabelModal(false)}>Cancel</button>
               <button className={styles.btnPrimary} onClick={handleAddLabel} disabled={!newLabelName.trim()}>Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editLabelModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3>Rename Label</h3>
+            <input
+              type="text"
+              autoFocus
+              className={styles.modalInput}
+              value={editLabelModal.newName}
+              onChange={(e) => setEditLabelModal({ ...editLabelModal, newName: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameLabel();
+                if (e.key === 'Escape') setEditLabelModal(null);
+              }}
+              placeholder="e.g. Right Hand"
+            />
+            <div className={styles.modalActions}>
+              <button className={styles.btnSecondary} onClick={() => setEditLabelModal(null)}>Cancel</button>
+              <button className={styles.btnPrimary} onClick={handleRenameLabel} disabled={!editLabelModal.newName.trim()}>Save</button>
             </div>
           </div>
         </div>

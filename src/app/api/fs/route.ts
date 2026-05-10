@@ -17,8 +17,8 @@ export async function GET(request: Request) {
     const files = entries.map(entry => {
       const isDir = entry.isDirectory();
       const ext = path.extname(entry.name).toLowerCase();
-      // Only list directories, images, and videos
-      const isMedia = ['.mp4', '.mov', '.avi', '.jpg', '.jpeg', '.png'].includes(ext);
+      // Only list directories, images, videos, and mat files
+      const isMedia = ['.mp4', '.mov', '.avi', '.jpg', '.jpeg', '.png', '.mat'].includes(ext);
       
       if (!isDir && !isMedia) return null;
 

@@ -13,10 +13,13 @@ interface FilePickerProps {
   onSelect: (paths: string[]) => void;
   multiSelect?: boolean;
   directoriesOnly?: boolean;
+  accept?: string;
+  title?: string;
+  message?: React.ReactNode;
   onClose: () => void;
 }
 
-export default function FilePicker({ onSelect, multiSelect = false, directoriesOnly = false, onClose }: FilePickerProps) {
+export default function FilePicker({ onSelect, multiSelect = false, directoriesOnly = false, accept, title, message, onClose }: FilePickerProps) {
   const [currentPath, setCurrentPath] = useState('');
   const [parentPath, setParentPath] = useState('');
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -82,9 +85,10 @@ export default function FilePicker({ onSelect, multiSelect = false, directoriesO
     <div className={styles.overlay}>
       <div className={styles.modal}>
         <div className={styles.header}>
-          <h3>Select {directoriesOnly ? 'Directory' : 'Files'}</h3>
+          <h3>{title || `Select ${directoriesOnly ? 'Directory' : 'Files'}`}</h3>
           <button onClick={onClose} className={styles.closeBtn}>&times;</button>
         </div>
+        {message && <div style={{ padding: '0 1.5rem', color: 'var(--text-muted)' }}>{message}</div>}
         <div className={styles.pathBar}>
           <button disabled={!parentPath} onClick={() => fetchDir(parentPath)} className={styles.iconBtn}>
             <CornerLeftUp size={18} />
@@ -97,6 +101,9 @@ export default function FilePicker({ onSelect, multiSelect = false, directoriesO
           ) : (
             files.map(f => {
               if (directoriesOnly && !f.isDirectory) return null;
+              if (!directoriesOnly && !f.isDirectory && accept) {
+                if (accept === '.mat' && !f.name.toLowerCase().endsWith('.mat')) return null;
+              }
               
               const isSelected = selected.has(f.path);
               return (
@@ -107,6 +114,7 @@ export default function FilePicker({ onSelect, multiSelect = false, directoriesO
                 >
                   <div className={styles.icon}>
                     {f.isDirectory ? <Folder size={18} color="var(--primary)" /> : 
+                     f.name.match(/\.(mat)$/i) ? <FileVideo size={18} color="var(--primary)" /> :
                      f.name.match(/\.(mp4|mov|avi)$/i) ? <FileVideo size={18} color="var(--text-muted)" /> :
                      <FileImage size={18} color="var(--text-muted)" />}
                   </div>

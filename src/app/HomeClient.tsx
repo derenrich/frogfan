@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Video } from 'lucide-react';
+import { Plus, Video, Trash2 } from 'lucide-react';
 import styles from './page.module.css';
 
 export default function HomeClient() {
@@ -16,6 +16,23 @@ export default function HomeClient() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDelete = async (id: string, title: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!window.confirm(`Are you sure you want to permanently delete the session "${title}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSessions(sessions.filter(s => s.id !== id));
+      } else {
+        alert('Failed to delete session');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error occurred while deleting');
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -41,10 +58,19 @@ export default function HomeClient() {
         ) : (
           <div className={styles.grid}>
             {sessions.map(s => (
-              <Link href={`/session/${s.id}`} key={s.id} className={styles.card}>
-                <h3>{s.title}</h3>
-                <p>Last updated: {new Date(s.updatedAt).toLocaleDateString()}</p>
-              </Link>
+              <div key={s.id} className={styles.cardWrapper}>
+                <Link href={`/session/${s.id}`} className={styles.card}>
+                  <h3>{s.title}</h3>
+                  <p>Last updated: {new Date(s.updatedAt).toLocaleDateString()}</p>
+                </Link>
+                <button 
+                  className={styles.deleteBtn} 
+                  onClick={(e) => handleDelete(s.id, s.title, e)}
+                  title="Delete Session"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             ))}
           </div>
         )}

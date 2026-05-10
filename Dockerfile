@@ -25,6 +25,9 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
+# Install python3 and h5py for MAT file import compatibility
+RUN apk add --no-cache python3 py3-h5py
+
 ENV NODE_ENV production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 ENV NEXT_TELEMETRY_DISABLED 1
@@ -40,6 +43,9 @@ RUN chown nextjs:nodejs .next
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Manually copy the python script used for MAT extraction since Next.js trace won't catch it
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib/parse_mat.py ./src/lib/parse_mat.py
 
 USER nextjs
 
