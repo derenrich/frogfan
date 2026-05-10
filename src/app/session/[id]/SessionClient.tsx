@@ -1,8 +1,9 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { CornerLeftUp, Save, Download, ChevronLeft, ChevronRight, Video, Plus, X, Pencil } from 'lucide-react';
 import LabelCanvas from '@/components/LabelCanvas';
+import { triangulate, getEpipolarLine, project3DTo2D, CameraView } from '@/lib/dlt';
 import styles from './session.module.css';
 
 interface Point { x: number; y: number; }
@@ -26,7 +27,7 @@ export default function SessionClient({ id }: { id: string }) {
   const [session, setSession] = useState<Session | null>(null);
   const [mediaIndex, setMediaIndex] = useState(0);
   const [frameIndex, setFrameIndex] = useState(0);
-  const [mediaMeta, setMediaMeta] = useState<{ totalFrames: number; type: string; fps?: number } | null>(null);
+  const [mediaMeta, setMediaMeta] = useState<{ totalFrames: number; type: string; fps?: number, width?: number, height?: number } | null>(null);
   const [currentLabel, setCurrentLabel] = useState<string | null>(null);
   const [zoomPan, setZoomPan] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
   const [saving, setSaving] = useState(false);
@@ -35,13 +36,99 @@ export default function SessionClient({ id }: { id: string }) {
   const [editLabelModal, setEditLabelModal] = useState<{ oldName: string; newName: string } | null>(null);
 
   // Generate distinct colors for labels
-  const labelColors: { [key: string]: string } = {};
-  if (session) {
-    const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'];
-    session.labelNames.forEach((l, i) => {
-      labelColors[l] = colors[i % colors.length];
-    });
-  }
+  const labelColors = useMemo(() => {
+    const map: { [key: string]: string } = {};
+    if (session) {
+      const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'];
+      session.labelNames.forEach((l, i) => {
+        map[l] = colors[i % colors.length];
+      });
+    }
+    return map;
+  }, [session?.labelNames]);
+
+  const dltGeometries = useMemo(() => {
+    const lines: { color: string, start: {u: number, v: number}, end: {u: number, v: number} }[] = [];
+    const points: { color: string, u: number, v: number }[] = [];
+    let isOffScreen = false;
+
+    if (!session || !session.dltcoef || !currentLabel) return { lines, points, isOffScreen };
+
+    const numCameras = session.mediaFiles.length;
+    const label = currentLabel;
+    const otherCameras: CameraView[] = [];
+
+    for (let i = 0; i < numCameras; i++) {
+      if (i === mediaIndex) continue; // Skip current camera
+      const otherPath = session.mediaFiles[i];
+      const otherPt = session.annotations[otherPath]?.[frameIndex]?.[label];
+      
+      if (otherPt) {
+        const coefs = [];
+        for (let j = 0; j < 11; j++) {
+          coefs.push(session.dltcoef[j][i]);
+        }
+        otherCameras.push({ u: otherPt.x, v: otherPt.y, coefs });
+      }
+    }
+
+    if (otherCameras.length === 0) return { lines, points };
+
+    // Get current camera coefs
+    const targetCoefs = [];
+    for (let j = 0; j < 11; j++) {
+      targetCoefs.push(session.dltcoef[j][mediaIndex]);
+    }
+
+    const color = labelColors[label] || '#ffffff';
+
+    if (otherCameras.length === 1) {
+      // Epipolar line
+      const line = getEpipolarLine(otherCameras[0].coefs, targetCoefs, otherCameras[0].u, otherCameras[0].v);
+      if (line) {
+        lines.push({ color, start: line.start, end: line.end });
+
+        if (mediaMeta?.width && mediaMeta?.height) {
+          const w = mediaMeta.width;
+          const h = mediaMeta.height;
+          const x1 = line.start.u, y1 = line.start.v;
+          const x2 = line.end.u, y2 = line.end.v;
+
+          const intersects = (x3: number, y3: number, x4: number, y4: number) => {
+            const den = ((y4-y3)*(x2-x1) - (x4-x3)*(y2-y1));
+            if (den === 0) return false;
+            const uA = ((x4-x3)*(y1-y3) - (y4-y3)*(x1-x3)) / den;
+            const uB = ((x2-x1)*(y1-y3) - (y2-y1)*(x1-x3)) / den;
+            return (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1);
+          };
+
+          const isInside = (x: number, y: number) => x >= 0 && x <= w && y >= 0 && y <= h;
+          
+          const hasIntersection = 
+            isInside(x1, y1) || isInside(x2, y2) ||
+            intersects(0, 0, w, 0) || 
+            intersects(w, 0, w, h) || 
+            intersects(w, h, 0, h) || 
+            intersects(0, h, 0, 0);
+
+          isOffScreen = !hasIntersection;
+        }
+      }
+    } else if (otherCameras.length >= 2) {
+      // Triangulate
+      const p3d = triangulate(otherCameras);
+      if (p3d) {
+        const p2d = project3DTo2D(targetCoefs, p3d.x, p3d.y, p3d.z);
+        points.push({ color, u: p2d.u, v: p2d.v });
+
+        if (mediaMeta?.width && mediaMeta?.height) {
+          isOffScreen = p2d.u < 0 || p2d.u > mediaMeta.width || p2d.v < 0 || p2d.v > mediaMeta.height;
+        }
+      }
+    }
+
+    return { lines, points, isOffScreen };
+  }, [session, mediaIndex, frameIndex, currentLabel, labelColors, mediaMeta?.width, mediaMeta?.height]);
 
   useEffect(() => {
     fetch(`/api/sessions/${id}`)
@@ -384,6 +471,11 @@ export default function SessionClient({ id }: { id: string }) {
         </div>
 
         <div className={styles.canvasContainer}>
+          {dltGeometries.isOffScreen && (
+            <div style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(239, 68, 68, 0.9)', color: 'white', padding: '8px 16px', borderRadius: 8, zIndex: 10, fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', pointerEvents: 'none' }}>
+              ⚠️ Projected geometry is out of bounds
+            </div>
+          )}
           <LabelCanvas
             imageUrl={imageUrl}
             points={currentPoints}
@@ -392,6 +484,8 @@ export default function SessionClient({ id }: { id: string }) {
             zoomPanState={zoomPan}
             onZoomPanChange={setZoomPan}
             labelColors={labelColors}
+            epipolarLines={dltGeometries.lines}
+            predictedPoints={dltGeometries.points}
           />
         </div>
       </div>

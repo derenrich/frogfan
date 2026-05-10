@@ -20,6 +20,39 @@ interface LabelCanvasProps {
   zoomPanState: ZoomPanState;
   onZoomPanChange: (state: ZoomPanState) => void;
   labelColors?: { [labelName: string]: string };
+  epipolarLines?: { color: string; start: { u: number; v: number }; end: { u: number; v: number } }[];
+  predictedPoints?: { color: string; u: number; v: number }[];
+}
+
+function clipLineToRect(x1: number, y1: number, x2: number, y2: number, xmin: number, ymin: number, xmax: number, ymax: number) {
+  let t0 = 0, t1 = 1;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  
+  const p = [-dx, dx, -dy, dy];
+  const q = [x1 - xmin, xmax - x1, y1 - ymin, ymax - y1];
+  
+  for(let i=0; i<4; i++) {
+    if (p[i] === 0) {
+      if (q[i] < 0) return null;
+    } else {
+      const t = q[i] / p[i];
+      if (p[i] < 0) {
+        if (t > t1) return null;
+        if (t > t0) t0 = t;
+      } else {
+        if (t < t0) return null;
+        if (t < t1) t1 = t;
+      }
+    }
+  }
+  
+  return {
+    x1: x1 + t0 * dx,
+    y1: y1 + t0 * dy,
+    x2: x1 + t1 * dx,
+    y2: y1 + t1 * dy
+  };
 }
 
 export default function LabelCanvas({
@@ -29,7 +62,9 @@ export default function LabelCanvas({
   onPointPlaced,
   zoomPanState,
   onZoomPanChange,
-  labelColors = {}
+  labelColors = {},
+  epipolarLines = [],
+  predictedPoints = []
 }: LabelCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -112,8 +147,46 @@ export default function LabelCanvas({
       ctx.fillText(label, pt.x + 8 / finalScale, pt.y + 4 / finalScale);
     });
 
+    // Draw Epipolar Lines
+    epipolarLines.forEach(line => {
+      // Clip line to a safe bounding box slightly larger than the image.
+      // This prevents sending gigantic coordinates to the canvas when zoomed in,
+      // which causes lines to silently vanish.
+      const w = image.width;
+      const h = image.height;
+      const clipped = clipLineToRect(line.start.u, line.start.v, line.end.u, line.end.v, -w, -h, w * 2, h * 2);
+      
+      if (!clipped) return;
+
+      ctx.beginPath();
+      ctx.moveTo(clipped.x1, clipped.y1);
+      ctx.lineTo(clipped.x2, clipped.y2);
+      ctx.strokeStyle = line.color;
+      ctx.lineWidth = 1.5 / finalScale;
+      ctx.setLineDash([10 / finalScale, 10 / finalScale]);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset
+    });
+
+    // Draw Predicted Triangulated Points (Crosshairs or Hollow Circles)
+    predictedPoints.forEach(pt => {
+      ctx.beginPath();
+      ctx.arc(pt.u, pt.v, 6 / finalScale, 0, 2 * Math.PI);
+      ctx.strokeStyle = pt.color;
+      ctx.lineWidth = 2 / finalScale;
+      ctx.setLineDash([4 / finalScale, 2 / finalScale]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Draw inner dot
+      ctx.beginPath();
+      ctx.arc(pt.u, pt.v, 1.5 / finalScale, 0, 2 * Math.PI);
+      ctx.fillStyle = pt.color;
+      ctx.fill();
+    });
+
     ctx.restore();
-  }, [image, points, zoomPanState, labelColors]);
+  }, [image, points, zoomPanState, labelColors, epipolarLines, predictedPoints]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     isDragging.current = true;

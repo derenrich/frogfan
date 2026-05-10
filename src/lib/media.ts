@@ -21,7 +21,7 @@ export async function ensureCacheDir() {
   }
 }
 
-export async function getVideoMetadata(filePath: string): Promise<{ fps: number, duration: number, totalFrames: number }> {
+export async function getVideoMetadata(filePath: string): Promise<{ fps: number, duration: number, totalFrames: number, width: number, height: number }> {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(filePath, (err, metadata) => {
       if (err) return reject(err);
@@ -46,7 +46,10 @@ export async function getVideoMetadata(filePath: string): Promise<{ fps: number,
         totalFrames = Math.floor(duration * fps);
       }
       
-      resolve({ fps, duration, totalFrames });
+      const width = videoStream.width || 0;
+      const height = videoStream.height || 0;
+      
+      resolve({ fps, duration, totalFrames, width, height });
     });
   });
 }
