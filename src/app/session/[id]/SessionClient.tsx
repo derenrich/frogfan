@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { CornerLeftUp, Save, Download, ChevronLeft, ChevronRight, Video } from 'lucide-react';
+import { CornerLeftUp, Save, Download, ChevronLeft, ChevronRight, Video, Plus, X } from 'lucide-react';
 import LabelCanvas from '@/components/LabelCanvas';
 import styles from './session.module.css';
 
@@ -28,6 +28,8 @@ export default function SessionClient({ id }: { id: string }) {
   const [currentLabel, setCurrentLabel] = useState<string | null>(null);
   const [zoomPan, setZoomPan] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
   const [saving, setSaving] = useState(false);
+  const [showAddLabelModal, setShowAddLabelModal] = useState(false);
+  const [newLabelName, setNewLabelName] = useState('');
 
   // Generate distinct colors for labels
   const labelColors: { [key: string]: string } = {};
@@ -101,6 +103,56 @@ export default function SessionClient({ id }: { id: string }) {
     setSession({ ...session, annotations: newAnns });
     saveProgress(newAnns);
   }, [session, mediaIndex, frameIndex, currentLabel]);
+
+  const handleAddLabel = () => {
+    if (!session || !newLabelName.trim()) return;
+    const name = newLabelName.trim();
+    if (session.labelNames.includes(name)) {
+      alert('Label already exists');
+      return;
+    }
+    const updatedSession = { ...session, labelNames: [...session.labelNames, name] };
+    setSession(updatedSession);
+    setNewLabelName('');
+    setShowAddLabelModal(false);
+    
+    fetch(`/api/sessions/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedSession)
+    });
+  };
+
+  const handleRemoveLabel = (labelToRemove: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!session) return;
+    if (!window.confirm(`Are you sure you want to delete the label "${labelToRemove}" and ALL its data?`)) return;
+
+    const newLabelNames = session.labelNames.filter(l => l !== labelToRemove);
+    const newAnns = { ...session.annotations };
+    
+    Object.keys(newAnns).forEach(mediaPath => {
+      newAnns[mediaPath] = { ...newAnns[mediaPath] };
+      Object.keys(newAnns[mediaPath]).forEach(frame => {
+        if (newAnns[mediaPath][frame][labelToRemove]) {
+          newAnns[mediaPath][frame] = { ...newAnns[mediaPath][frame] };
+          delete newAnns[mediaPath][frame][labelToRemove];
+        }
+      });
+    });
+
+    const updatedSession = { ...session, labelNames: newLabelNames, annotations: newAnns };
+    setSession(updatedSession);
+    if (currentLabel === labelToRemove) {
+      setCurrentLabel(newLabelNames.length > 0 ? newLabelNames[0] : null);
+    }
+
+    fetch(`/api/sessions/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedSession)
+    });
+  };
 
   const handleNudge = useCallback((dx: number, dy: number) => {
     if (!session || !currentLabel) return;
@@ -204,19 +256,27 @@ export default function SessionClient({ id }: { id: string }) {
           <h3>Labels (Keys 1-{session.labelNames.length})</h3>
           <div className={styles.labelList}>
             {session.labelNames.map((l, i) => (
-              <button
-                key={l}
-                className={`${styles.labelBtn} ${l === currentLabel ? styles.active : ''}`}
-                onClick={() => setCurrentLabel(l)}
-              >
-                <span className={styles.colorDot} style={{ background: labelColors[l] }} />
-                <span className={styles.keyHint}>{i + 1}</span> {l}
-              </button>
+              <div key={l} className={styles.labelItemWrapper}>
+                <button
+                  className={`${styles.labelBtn} ${l === currentLabel ? styles.active : ''}`}
+                  onClick={() => setCurrentLabel(l)}
+                  style={{ flex: 1 }}
+                >
+                  <span className={styles.colorDot} style={{ background: labelColors[l] }} />
+                  <span className={styles.keyHint}>{i + 1}</span> {l}
+                </button>
+                <button className={styles.deleteLabelBtn} onClick={(e) => handleRemoveLabel(l, e)} title="Delete Label">
+                  <X size={16} />
+                </button>
+              </div>
             ))}
           </div>
         </div>
 
         <div className={styles.bottomActions}>
+          <button className={styles.actionBtn} onClick={() => setShowAddLabelModal(true)}>
+            <Plus size={18} /> Add New Label
+          </button>
           <button className={styles.actionBtn} onClick={() => saveProgress(session.annotations)}>
             <Save size={18} /> {saving ? 'Saving...' : 'Save'}
           </button>
@@ -275,6 +335,30 @@ export default function SessionClient({ id }: { id: string }) {
           />
         </div>
       </div>
+
+      {showAddLabelModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3>Add New Label</h3>
+            <input
+              type="text"
+              autoFocus
+              className={styles.modalInput}
+              value={newLabelName}
+              onChange={(e) => setNewLabelName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAddLabel();
+                if (e.key === 'Escape') setShowAddLabelModal(false);
+              }}
+              placeholder="e.g. Right Hand"
+            />
+            <div className={styles.modalActions}>
+              <button className={styles.btnSecondary} onClick={() => setShowAddLabelModal(false)}>Cancel</button>
+              <button className={styles.btnPrimary} onClick={handleAddLabel} disabled={!newLabelName.trim()}>Add</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
