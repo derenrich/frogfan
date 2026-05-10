@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   frogfan:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/derenrich/frogfan:main
     ports:
       - "3000:3000"
     volumes:
